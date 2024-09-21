@@ -56,7 +56,7 @@
 
 Мною была составлена C4-диаграмма, чтобы проанализировать текущее архитектурное решение:
 
-![architecture_overview](../diagrams/out/architecture_overview/architecture_overview.png)
+![architecture_overview](../diagrams/out/task_1/architecture_overview.png)
 
 ## Домены и границы контекстов
 

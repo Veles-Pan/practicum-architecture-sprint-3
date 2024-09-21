@@ -1,0 +1,313 @@
+@startuml smart_home_container
+
+!include C4_Context.puml
+!include C4_Container.puml
+!include C4_Component.puml
+
+' Акторы
+Person(User, "Пользователь", "Домовладелец, управляющий системой отопления через веб-интерфейс или мобильное приложение")
+System_Ext(TemperatureSensor, "Датчик температуры", "Передает текущие данные о температуре в систему")
+System_Ext(HeatingSystem, "Ситема отопления", "Принимает данные о нужной температуре или включении и выключении от системы")
+
+' Определение систем и контейнеров
+System_Boundary(system, "Умный Дом") {
+
+    ' API Gateway
+    Container(apiGateway, "API Gateway", "Маршрутизирует запросы и выполняет аутентификацию")
+
+    ' Микросервисы
+    Container(heatingService, "Heating Service", "Управление отоплением")
+    Container(userService, "User Service", "Управление пользователями")
+    Container(deviceService, "Device Management Service", "Управление устройствами")
+    Container(notificationService, "Notification Service", "Уведомления пользователей")
+
+    ' Базы данных
+    ContainerDb(heatingDB, "Heating DB", "PostgreSQL", "База данных отопления")
+    ContainerDb(UserDB, "User DB", "PostgreSQL", "База данных пользователей")
+    ContainerDb(deviceDB, "Device DB", "PostgreSQL", "База данных устройств")
+
+    ' Шина данных
+    Container(kafka, "Kafka", "Apache Kafka", "Шина данных для обмена сообщениями")
+
+}
+
+' Взаимодействия
+Rel(User, apiGateway, "Использует")
+Rel(TemperatureSensor, apiGateway, "Отправляет данные о температуре")
+Rel(HeatingSystem, apiGateway, "Получает команды на управление")
+Rel(apiGateway, heatingService, "Маршрутизирует запросы")
+Rel(apiGateway, userService, "Маршрутизирует запросы")
+Rel(apiGateway, deviceService, "Маршрутизирует запросы")
+
+' Микросервисы и их базы данных
+Rel(heatingService, heatingDB, "Чтение и запись")
+Rel(userService, UserDB, "Чтение и запись")
+Rel(notificationService, UserDB, "Чтение")
+Rel(deviceService, deviceDB, "Чтение и запись")
+
+' Микросервисы взаимодействуют через Kafka
+Rel(heatingService, kafka, "Публикует и подписывается на события", "Kafka")
+Rel(notificationService, kafka, "Подписывается на события и отправляет уведомления", "Kafka")
+Rel(deviceService, kafka, "Публикует и подписывается на события", "Kafka")
+
+' Уведомления пользователю
+Rel(notificationService, User, "Отправляет уведомления", "Email/SMS/Push")
+
+@enduml
+
+@startuml heating_service_component
+!include C4_Component.puml
+
+Container_Boundary(heatingService, "Heating Service") {
+
+    ' Контекст Управления устройствами
+    Component(heatingController, "Heating Controller", "REST Controller", "Обрабатывает запросы управления отоплением")
+    Component(heatingControlService, "Heating Control Service", "Логика управления устройствами отопления")
+    Component(commandPublisher, "Command Publisher", "Публикует команды в Kafka")
+    
+    ' Контекст Мониторинга
+    Component(monitoringController, "Monitoring Controller", "REST Controller", "Обрабатывает запросы мониторинга")
+    Component(temperatureMonitoringService, "Temperature Monitoring Service",  "Обрабатывает данные от датчиков температуры")
+    Component(sensorDataProcessor, "Sensor Data Processor", "Обработка и хранение данных с датчиков")
+    
+    ' Общие компоненты
+    Component(heatingRepository, "Heating Repository", "Доступ к данным отопления")
+}
+
+ContainerDb(heatingDB, "Heating DB", "PostgreSQL", "Хранит данные отопления")
+Container(kafka, "Kafka", "Apache Kafka", "Шина данных")
+
+' Взаимодействия в контексте Управления устройствами
+Rel(heatingController, heatingControlService, "Вызывает")
+Rel(heatingControlService, commandPublisher, "Отправляет команды")
+Rel(commandPublisher, kafka, "Публикует команды", "Kafka")
+
+' Взаимодействия в контексте Мониторинга
+Rel(monitoringController, temperatureMonitoringService, "Вызывает")
+Rel(temperatureMonitoringService, sensorDataProcessor, "Обрабатывает данные")
+Rel(sensorDataProcessor, heatingRepository, "Читает/Записывает данные")
+Rel(sensorDataProcessor, kafka, "Получает данные от датчиков", "Kafka")
+
+' Общие взаимодействия
+Rel(heatingControlService, heatingRepository, "Читает/Записывает данные")
+Rel(heatingRepository, heatingDB, "Чтение и запись")
+Rel(temperatureMonitoringService, heatingRepository, "Читает данные")
+
+@enduml
+
+
+@startuml device_service_component
+!include C4_Component.puml
+
+System_Ext(Device, "Нужный девайс", "Принимает данные о новых настройках")
+
+
+Container_Boundary(deviceService, "Device Management Service") {
+    ' Контроллеры
+    Component(deviceController, "Device Controller", "REST Controller", "Обрабатывает запросы управления устройствами")
+    
+    ' Сервисы
+    Component(deviceRegistrationService, "Device Registration Service", "Регистрация новых устройств")
+    Component(deviceUpdateService, "Device Update Service", "Обновление информации об устройствах")
+    Component(deviceArchivalService, "Device Archival Service", "Архивация неактивных устройств")
+    Component(deviceCommandProcessor, "Device Command Processor", "Kafka Consumer", "Обрабатывает команды из Kafka и обновляет устройства")
+    
+    ' Репозитории
+    Component(deviceRepository, "Device Repository",  "Доступ к данным устройств в базе данных")
+    
+    ' Компонент для взаимодействия с устройствами
+    Component(deviceCommunicator, "Device Communicator",  "Взаимодействует с физическими устройствами")
+}
+
+' Внешние системы
+ContainerDb(deviceDB, "Device DB", "PostgreSQL", "Хранит данные устройств")
+Container(kafka, "Kafka", "Apache Kafka", "Шина данных для обмена сообщениями")
+
+' Взаимодействия компонентов
+Rel(deviceController, deviceRegistrationService, "Регистрация устройства")
+Rel(deviceController, deviceUpdateService, "Обновление устройства")
+Rel(deviceCommunicator, deviceUpdateService, "Обновление устройства")
+
+Rel(deviceController, deviceArchivalService, "Архивация устройства")
+Rel(deviceRegistrationService, deviceRepository, "Сохраняет новое устройство")
+Rel(deviceUpdateService, deviceRepository, "Обновляет данные устройства")
+Rel(deviceArchivalService, deviceRepository, "Помечает устройство как архивное")
+Rel(deviceRepository, deviceDB, "Чтение и запись")
+
+' Интеграция с Kafka
+Rel(kafka, deviceCommandProcessor, "Потребляет команды", "Kafka")
+Rel(deviceCommandProcessor, deviceCommunicator, "Отправляет команды устройствам")
+Rel(deviceCommunicator, deviceRepository, "Читает конфигурации устройств")
+
+' Внешние взаимодействия
+Rel(deviceCommunicator, Device, "Отправляет команды на изменения")
+
+@enduml
+
+@startuml device_update_distributed_tracing
+
+title Обновление настроек устройства отопления
+
+actor User
+participant "Heating Controller" as HeatingController
+participant "Heating Control Service" as HeatingControlService
+participant "Command Publisher" as CommandPublisher
+queue "Kafka Topic" as KafkaTopic
+participant "Device Command Processor" as DeviceCommandProcessor
+participant "Device Communicator" as DeviceCommunicator
+participant "Physical Device" as PhysicalDevice
+
+User -> HeatingController: Устанавливает новую температуру
+HeatingController -> HeatingControlService: setTargetTemperature()
+HeatingControlService -> HeatingRepository: Обновляет температуру
+HeatingRepository --> HeatingControlService: Подтверждение
+HeatingControlService -> CommandPublisher: Публикует команду
+CommandPublisher -> KafkaTopic: Сообщение команды
+KafkaTopic -> DeviceCommandProcessor: Потребляет команду
+DeviceCommandProcessor -> DeviceCommunicator: Обрабатывает команду
+DeviceCommunicator -> PhysicalDevice: Отправляет команду
+PhysicalDevice --> DeviceCommunicator: Подтверждение
+DeviceCommunicator -> DeviceRepository: Обновляет статус устройства
+DeviceRepository --> DeviceCommunicator: Подтверждение
+DeviceRepository --> User: Подтверждение
+
+@enduml
+
+@startuml user_service_component
+!include C4_Component.puml
+
+
+Container_Boundary(userService, "User Service") {
+    Component(authController, "Auth Controller", "REST Controller", "Обрабатывает запросы авторизации и аутентификации")
+    Component(userProfileController, "User Profile Controller", "REST Controller", "Управляет профилями пользователей")
+    Component(authService, "Authentication Service",  "Логика аутентификации")
+    Component(userServiceComponent, "User Service Component", "Управление данными пользователей")
+    Component(userRepository, "User Repository", "Доступ к данным пользователей в базе данных")
+}
+
+ContainerDb(userDB, "User DB", "PostgreSQL", "Хранит данные пользователей")
+
+' Взаимодействия компонентов
+Rel(authController, authService, "Вызывает")
+Rel(authService, userRepository, "Читает/Записывает данные")
+Rel(userProfileController, userServiceComponent, "Вызывает")
+Rel(userServiceComponent, userRepository, "Читает/Записывает данные")
+Rel(userRepository, userDB, "Чтение и запись", "JDBC")
+
+@enduml
+
+@startuml notification_service_component
+!include C4_Component.puml
+
+Container_Boundary(notificationService, "Notification Service") {
+    ' Компоненты
+    Component(eventConsumer, "Event Consumer",  "Потребляет события из Kafka")
+    Component(notificationProcessor, "Notification Processor",  "Обрабатывает события и формирует уведомления")
+    Component(emailSender, "Email Sender","Отправляет Email уведомления")
+    Component(smsSender, "SMS Sender", "Отправляет SMS уведомления")
+    Component(pushSender, "Push Notification Sender",  "Отправляет Push-уведомления")
+    Component(userPreferenceService, "User Preference Service",  "Получает предпочтения пользователей по каналам связи")
+}
+
+' Внешние системы
+Container(kafka, "Kafka", "Apache Kafka", "Шина данных для обмена сообщениями")
+System_Ext(emailService, "Email Service",  "Сервис для отправки Email")
+System_Ext(smsService, "SMS Service", "Сервис для отправки SMS")
+System_Ext(pushService, "Push Service",  "Сервис для отправки Push-уведомлений")
+Container(userService, "User Service", "Управление пользователями и их предпочтениями")
+
+' Взаимодействия компонентов
+Rel(eventConsumer, notificationProcessor, "Передает события")
+Rel(notificationProcessor, userPreferenceService, "Получает предпочтения пользователей")
+Rel(notificationProcessor, emailSender, "Отправляет Email")
+Rel(notificationProcessor, smsSender, "Отправляет SMS")
+Rel(notificationProcessor, pushSender, "Отправляет Push-уведомления")
+
+' Взаимодействие с внешними системами
+Rel(emailSender, emailService, "Отправляет Email")
+Rel(smsSender, smsService, "Отправляет SMS")
+Rel(pushSender, pushService, "Отправляет Push-уведомления")
+
+' Интеграция с Kafka
+Rel(kafka, eventConsumer, "Потребляет события", "Kafka")
+
+' Взаимодействие с User Service
+Rel(userPreferenceService, userService, "Получает данные о предпочтениях пользователей")
+
+@enduml
+
+
+@startuml heating_service_code
+package "Heating Device Control Context" {
+    class HeatingController {
+        + setTargetTemperature(deviceId, temperature)
+        + turnOnHeating(deviceId)
+        + turnOffHeating(deviceId)
+    }
+    
+    class HeatingControlService {
+        - heatingRepository: HeatingRepository
+        - commandPublisher: CommandPublisher
+        + setTargetTemperature(deviceId, temperature)
+        + turnOnHeating(deviceId)
+        + turnOffHeating(deviceId)
+    }
+    
+    class CommandPublisher {
+        + sendCommand(deviceId, command)
+    }
+}
+
+package "Monitoring Context" {
+    class MonitoringController {
+        + getCurrentTemperature(deviceId): Float
+        + getTemperatureHistory(deviceId): TemperatureRecord[]
+    }
+    
+    class TemperatureMonitoringService {
+        - heatingRepository: HeatingRepository
+        + getCurrentTemperature(deviceId): Float
+        + getTemperatureHistory(deviceId): TemperatureRecord[]
+    }
+    
+    class SensorDataProcessor {
+        - heatingRepository: HeatingRepository
+        - kafka: Kafka
+        + addSensorData(temperatureRecord)
+    }
+
+}
+
+' Общие классы
+class HeatingRepository {
+    + save(heatingData)
+    + findByDeviceId(deviceId): HeatingData
+    + getCurrentTemperature(deviceId): TemperatureRecord
+    + saveTemperatureRecord(temperatureRecord)
+    + getTemperatureHistory(deviceId): TemperatureRecord[]
+}
+
+class HeatingData {
+    - deviceId: String
+    - targetTemperature: Double
+    - isHeatingOn: Boolean
+}
+
+class TemperatureRecord {
+    - deviceId: String
+    - timestamp: DateTime
+    - temperature: Double
+}
+
+' Взаимодействия в контексте Управления устройствами
+HeatingController --> HeatingControlService
+HeatingControlService --> HeatingRepository
+HeatingControlService --> CommandPublisher
+
+' Взаимодействия в контексте Мониторинга
+MonitoringController --> TemperatureMonitoringService
+TemperatureMonitoringService --> HeatingRepository
+SensorDataProcessor --> HeatingRepository
+Kafka --> SensorDataProcessor
+
+@enduml
