@@ -63,7 +63,6 @@ entity "HeatingDevice" as HeatingDevice {
     --
     device_id : UUID [Reference to Device Service]
     target_temperature : Float
-    current_temperature : Float
     status : String
     created_at : DateTime
     updated_at : DateTime

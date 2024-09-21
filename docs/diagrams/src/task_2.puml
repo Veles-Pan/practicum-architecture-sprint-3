@@ -298,15 +298,14 @@ package "Heating Device Control Context" {
     class HeatingController {
         + setTargetTemperature(deviceId, temperature)
         + turnOnHeating(deviceId)
-        + turnOffHeating(deviceId)
+        + setHeatingStatus(deviceId, status)
     }
     
     class HeatingControlService {
         - heatingRepository: HeatingRepository
         - commandPublisher: CommandPublisher
         + setTargetTemperature(deviceId, temperature)
-        + turnOnHeating(deviceId)
-        + turnOffHeating(deviceId)
+        + setHeatingStatus(deviceId, status)
     }
     
     class CommandPublisher {
@@ -314,33 +313,10 @@ package "Heating Device Control Context" {
     }
 }
 
-package "Monitoring Context" {
-    class MonitoringController {
-        + getCurrentTemperature(deviceId): Float
-        + getTemperatureHistory(deviceId): TemperatureRecord[]
-    }
-    
-    class TemperatureMonitoringService {
-        - heatingRepository: HeatingRepository
-        + getCurrentTemperature(deviceId): Float
-        + getTemperatureHistory(deviceId): TemperatureRecord[]
-    }
-    
-    class SensorDataProcessor {
-        - heatingRepository: HeatingRepository
-        - kafka: Kafka
-        + addSensorData(temperatureRecord)
-    }
-
-}
-
 ' Общие классы
 class HeatingRepository {
     + save(heatingData)
     + findByDeviceId(deviceId): HeatingData
-    + getCurrentTemperature(deviceId): TemperatureRecord
-    + saveTemperatureRecord(temperatureRecord)
-    + getTemperatureHistory(deviceId): TemperatureRecord[]
 }
 
 class HeatingData {
