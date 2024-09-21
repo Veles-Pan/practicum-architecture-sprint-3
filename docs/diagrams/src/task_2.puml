@@ -17,13 +17,17 @@ System_Boundary(system, "Умный Дом") {
 
     ' Микросервисы
     Container(heatingService, "Heating Service", "Управление отоплением")
+    Container(houseService, "House Service", "Управление умным домом")
     Container(userService, "User Service", "Управление пользователями")
-    Container(deviceService, "Device Management Service", "Управление устройствами")
+    Container(deviceService, "Device Service", "Управление устройствами")
+    Container(telemetryService, "Telemetry Service", "Сбор и хранение телеметрии")
     Container(notificationService, "Notification Service", "Уведомления пользователей")
 
     ' Базы данных
     ContainerDb(heatingDB, "Heating DB", "PostgreSQL", "База данных отопления")
+    ContainerDb(houseDB, "House DB", "PostgreSQL", "База данных умного дома")
     ContainerDb(UserDB, "User DB", "PostgreSQL", "База данных пользователей")
+    ContainerDb(telemetryDB, "Telemetry DB", "PostgreSQL", "База данных телеметрии")
     ContainerDb(deviceDB, "Device DB", "PostgreSQL", "База данных устройств")
 
     ' Шина данных
@@ -36,19 +40,26 @@ Rel(User, apiGateway, "Использует")
 Rel(TemperatureSensor, apiGateway, "Отправляет данные о температуре")
 Rel(HeatingSystem, apiGateway, "Получает команды на управление")
 Rel(apiGateway, heatingService, "Маршрутизирует запросы")
+Rel(apiGateway, houseService, "Маршрутизирует запросы")
 Rel(apiGateway, userService, "Маршрутизирует запросы")
 Rel(apiGateway, deviceService, "Маршрутизирует запросы")
+Rel(apiGateway, telemetryService, "Маршрутизирует запросы")
 
 ' Микросервисы и их базы данных
 Rel(heatingService, heatingDB, "Чтение и запись")
 Rel(userService, UserDB, "Чтение и запись")
+Rel(houseService, houseDB, "Чтение и запись")
 Rel(notificationService, UserDB, "Чтение")
+Rel(telemetryService, telemetryDB, "Чтение и запись")
 Rel(deviceService, deviceDB, "Чтение и запись")
 
 ' Микросервисы взаимодействуют через Kafka
 Rel(heatingService, kafka, "Публикует и подписывается на события", "Kafka")
 Rel(notificationService, kafka, "Подписывается на события и отправляет уведомления", "Kafka")
 Rel(deviceService, kafka, "Публикует и подписывается на события", "Kafka")
+Rel(houseService, kafka, "Подписывается на события", "Kafka")
+Rel(telemetryService, kafka, "Подписывается на события", "Kafka")
+
 
 ' Уведомления пользователю
 Rel(notificationService, User, "Отправляет уведомления", "Email/SMS/Push")
@@ -64,12 +75,7 @@ Container_Boundary(heatingService, "Heating Service") {
     Component(heatingController, "Heating Controller", "REST Controller", "Обрабатывает запросы управления отоплением")
     Component(heatingControlService, "Heating Control Service", "Логика управления устройствами отопления")
     Component(commandPublisher, "Command Publisher", "Публикует команды в Kafka")
-    
-    ' Контекст Мониторинга
-    Component(monitoringController, "Monitoring Controller", "REST Controller", "Обрабатывает запросы мониторинга")
-    Component(temperatureMonitoringService, "Temperature Monitoring Service",  "Обрабатывает данные от датчиков температуры")
-    Component(sensorDataProcessor, "Sensor Data Processor", "Обработка и хранение данных с датчиков")
-    
+        
     ' Общие компоненты
     Component(heatingRepository, "Heating Repository", "Доступ к данным отопления")
 }
@@ -82,16 +88,37 @@ Rel(heatingController, heatingControlService, "Вызывает")
 Rel(heatingControlService, commandPublisher, "Отправляет команды")
 Rel(commandPublisher, kafka, "Публикует команды", "Kafka")
 
-' Взаимодействия в контексте Мониторинга
-Rel(monitoringController, temperatureMonitoringService, "Вызывает")
-Rel(temperatureMonitoringService, sensorDataProcessor, "Обрабатывает данные")
-Rel(sensorDataProcessor, heatingRepository, "Читает/Записывает данные")
-Rel(sensorDataProcessor, kafka, "Получает данные от датчиков", "Kafka")
-
 ' Общие взаимодействия
 Rel(heatingControlService, heatingRepository, "Читает/Записывает данные")
 Rel(heatingRepository, heatingDB, "Чтение и запись")
-Rel(temperatureMonitoringService, heatingRepository, "Читает данные")
+
+@enduml
+
+@startuml telemetry_service_component
+!include C4_Component.puml
+
+Container_Boundary(telemetryService, "Telemetry Service") {
+
+    Component(telemetryController, "Telemetry Controller", "REST Controller", "Обрабатывает запросы телеметрии")
+    Component(telemetryProcessor, "Telemetry Processor", "Обрабатывает телеметрию и генерирует алерты")
+    Component(telemetryRepository, "Telemetry Repository", "Доступ к данным телеметрии")
+    Component(telemetryConsumer, "Telemetry Consumer", "Kafka Consumer", "Потребляет данные телеметрии")
+    Component(alertGenerator, "Alert Generator", "Генерирует алерты на основе телеметрии")
+}
+
+ContainerDb(telemetryDB, "Telemetry DB", "PostgreSQL", "Хранит данные телеметрии")
+Container(kafka, "Kafka", "Apache Kafka", "Шина данных")
+
+' Interactions
+Rel(telemetryController, telemetryProcessor, "Отправляет данные")
+Rel(telemetryProcessor, telemetryRepository, "Читает и записывает данные")
+Rel(telemetryProcessor, alertGenerator, "Генерирует алерты")
+Rel(telemetryRepository, telemetryDB, "Чтение и запись")
+
+Rel(kafka, telemetryConsumer, "Потребляет данные", "Kafka")
+Rel(telemetryConsumer, telemetryProcessor, "Отправляет данные")
+
+Rel(alertGenerator, kafka, "Отправляет алерты", "Kafka")
 
 @enduml
 
@@ -233,6 +260,35 @@ Rel(kafka, eventConsumer, "Потребляет события", "Kafka")
 
 ' Взаимодействие с User Service
 Rel(userPreferenceService, userService, "Получает данные о предпочтениях пользователей")
+
+@enduml
+
+@startuml house_service_component
+!include C4_Context.puml
+!include C4_Container.puml
+!include C4_Component.puml
+
+Container_Boundary(houseService, "House Service") {
+    Component(houseProcessor, "House Processor",  "Обрабатывает события и обновляет данные умного дома")
+    Component(houseController, "House Controller", "REST Controller", "Управляет умным домом")
+    Component(eventConsumer, "Event Consumer",  "Потребляет события из Kafka")
+    Component(houseRepository, "House Repository", "Доступ к данным пользователей в базе данных")
+    Component(houseControlService, "House Control Service",  "Сервис управления данными умного дома (обновление, создание, удаление)")
+}
+
+ContainerDb(houseDB, "House DB", "PostgreSQL", "Хранит данные о домах")
+
+' Внешние системы
+Container(kafka, "Kafka", "Шина данных для обмена сообщениями")
+
+' Взаимодействия компонентов
+Rel(houseProcessor, houseRepository, "Обновление данных")
+Rel(houseController, houseControlService, "Вызов методов")
+Rel(houseControlService, houseRepository, "Обновление данных")
+Rel(houseRepository, houseDB, "Чтение/Запись")
+Rel(kafka, eventConsumer, "Потребление событий")
+Rel(eventConsumer, houseProcessor, "Потребление событий")
+
 
 @enduml
 

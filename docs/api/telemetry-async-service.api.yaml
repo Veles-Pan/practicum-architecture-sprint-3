@@ -1,0 +1,26 @@
+asyncapi: "2.2.0"
+info:
+    title: Telemetry Data
+    version: "1.0.0"
+channels:
+    telemetry.data:
+        subscribe:
+            summary: Подписка на данные телеметрии
+            message:
+                $ref: "#/components/messages/TelemetryDataMessage"
+components:
+    messages:
+        TelemetryDataMessage:
+            payload:
+                type: object
+                properties:
+                    device_id:
+                        type: string
+                        format: uuid
+                    timestamp:
+                        type: string
+                        format: date-time
+                    data:
+                        type: object
+                    unit:
+                        type: string

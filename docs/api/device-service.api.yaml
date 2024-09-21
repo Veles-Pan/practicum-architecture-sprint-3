@@ -1,0 +1,202 @@
+openapi: 3.0.1
+info:
+    title: Device Service API
+    version: 1.0.0
+servers:
+    - url: /devices
+paths:
+    /:
+        get:
+            summary: Получение списка устройств
+            responses:
+                "200":
+                    description: Список устройств
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: "#/components/schemas/Device"
+        post:
+            summary: Регистрация нового устройства
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/DeviceRegistration"
+            responses:
+                "201":
+                    description: Устройство успешно зарегистрировано
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/Device"
+                "400":
+                    description: Некорректный запрос
+    /{device_id}:
+        get:
+            summary: Получение информации об устройстве
+            parameters:
+                - in: path
+                  name: device_id
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: Идентификатор устройства
+            responses:
+                "200":
+                    description: Информация об устройстве
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/Device"
+                "404":
+                    description: Устройство не найдено
+        put:
+            summary: Обновление информации об устройстве
+            parameters:
+                - in: path
+                  name: device_id
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: Идентификатор устройства
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/DeviceUpdate"
+            responses:
+                "200":
+                    description: Устройство успешно обновлено
+                "400":
+                    description: Некорректный запрос
+                "404":
+                    description: Устройство не найдено
+    /{device_id}/status:
+        put:
+            summary: Обновление состояния устройства
+            parameters:
+                - in: path
+                  name: device_id
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: Идентификатор устройства
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                status:
+                                    type: string
+                                    enum: [active, inactive]
+                                    description: Новый статус устройства
+            responses:
+                "200":
+                    description: Статус устройства успешно обновлен
+                "400":
+                    description: Некорректный запрос
+                "404":
+                    description: Устройство не найдено
+    /{device_id}/commands:
+        post:
+            summary: Отправка команды устройству
+            parameters:
+                - in: path
+                  name: device_id
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: Идентификатор устройства
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/DeviceCommand"
+            responses:
+                "202":
+                    description: Команда принята для обработки
+                "400":
+                    description: Некорректный запрос
+                "404":
+                    description: Устройство не найдено
+components:
+    schemas:
+        Device:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                device_type_id:
+                    type: string
+                    format: uuid
+                house_id:
+                    type: string
+                    format: uuid
+                serial_number:
+                    type: string
+                status:
+                    type: string
+                    enum: [active, inactive]
+                name:
+                    type: string
+                configuration:
+                    type: object
+                installed_at:
+                    type: string
+                    format: date-time
+                last_active_at:
+                    type: string
+                    format: date-time
+                created_at:
+                    type: string
+                    format: date-time
+                updated_at:
+                    type: string
+                    format: date-time
+        DeviceRegistration:
+            type: object
+            required:
+                - device_type_id
+                - house_id
+                - serial_number
+            properties:
+                device_type_id:
+                    type: string
+                    format: uuid
+                house_id:
+                    type: string
+                    format: uuid
+                serial_number:
+                    type: string
+                name:
+                    type: string
+                configuration:
+                    type: object
+        DeviceUpdate:
+            type: object
+            properties:
+                name:
+                    type: string
+                configuration:
+                    type: object
+        DeviceCommand:
+            type: object
+            required:
+                - command
+            properties:
+                command:
+                    type: string
+                parameters:
+                    type: object

@@ -1,0 +1,26 @@
+asyncapi: "2.2.0"
+info:
+    title: Device Commands
+    version: "1.0.0"
+channels:
+    device.commands:
+        publish:
+            summary: Команды для устройств
+            message:
+                $ref: "#/components/messages/DeviceCommandMessage"
+components:
+    messages:
+        DeviceCommandMessage:
+            payload:
+                type: object
+                properties:
+                    device_id:
+                        type: string
+                        format: uuid
+                    command:
+                        type: string
+                    parameters:
+                        type: object
+                    timestamp:
+                        type: string
+                        format: date-time

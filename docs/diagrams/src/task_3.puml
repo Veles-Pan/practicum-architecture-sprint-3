@@ -1,0 +1,92 @@
+@startuml er_diagram
+
+entity "User" as User {
+    * id : UUID [PK]
+    --
+    name : String
+    email : String
+    password_hash : String
+    phone_number : String
+    preferred_notification_channels : String[]
+    created_at : DateTime
+    updated_at : DateTime
+}
+
+entity "House" as House {
+    * id : UUID [PK]
+    --
+    user_id : UUID [Reference to User Service]
+    address : String
+    name : String
+    created_at : DateTime
+    updated_at : DateTime
+}
+
+entity "Device" as Device {
+    * id : UUID [PK]
+    --
+    device_type_id : UUID [FK]
+    house_id : UUID [Reference to House Service]
+    serial_number : String
+    status : String
+    name : String
+    configuration : String
+    installed_at : DateTime
+    last_active_at : DateTime
+    created_at : DateTime
+    updated_at : DateTime
+}
+
+entity "DeviceType" as DeviceType {
+    * id : UUID [PK]
+    --
+    module_id : UUID [FK]
+    name : String
+    manufacturer : String
+    model : String
+    created_at : DateTime
+    updated_at : DateTime
+}
+
+entity "Module" as Module {
+    * id : UUID [PK]
+    --
+    name : String
+    service : Enum ServiceType
+    version : String
+    created_at : DateTime
+    updated_at : DateTime
+}
+
+entity "HeatingDevice" as HeatingDevice {
+    * id : UUID [PK]
+    --
+    device_id : UUID [Reference to Device Service]
+    target_temperature : Float
+    current_temperature : Float
+    status : String
+    created_at : DateTime
+    updated_at : DateTime
+}
+
+entity "TelemetryData" as TelemetryData {
+    * id : UUID [PK]
+    --
+    device_id : UUID [Reference to Device Service]
+    timestamp : DateTime
+    data : String
+    value : Float
+    unit : String
+    created_at : DateTime
+}
+
+' Define relationships
+
+User ||--o{ House : "owns"
+House ||--o{ Device : "contains"
+Device }o--|| DeviceType : "has type"
+DeviceType }|--|| Module : "belongs to"
+Device ||--o{ TelemetryData : "generates"
+Device }o-- HeatingDevice : "is"
+
+@enduml

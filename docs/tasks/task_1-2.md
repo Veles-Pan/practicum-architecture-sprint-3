@@ -7,6 +7,9 @@
     -   Управление устройствами отопления
     -   Включение/выключение отопления
     -   Установка и поддержание целевой температуры
+
+-   **Микросервис Телеметрии**
+
     -   Мониторинг текущей температуры
 
 -   **Микросервис пользователей (User Service)**
@@ -56,6 +59,14 @@
 #### Notification Service
 
 ![Notification Service](../diagrams/out/task_2/notification_service_component.png)
+
+#### House Service
+
+![House Service](../diagrams/out/task_2/house_service_component.png)
+
+#### Telemetry Service
+
+![Telemetry Service](../diagrams/out/task_2/telemetry_service_component.png)
 
 #### Heating Service
 
