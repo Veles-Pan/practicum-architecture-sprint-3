@@ -1,6 +1,6 @@
 export class MessageDto {
   readonly value: {
-    readonly device_id: string;
+    readonly deviceId: string;
     readonly parameters: any;
   };
   readonly command: string;

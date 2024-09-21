@@ -1,8 +1,8 @@
 export const kafkaConfig = {
   clientId: 'kafka-smart-home',
   groupId: 'device-consumerr',
-  heatingTopic: 'kafka-heating',
-  brokers: 'localhost:9092',
+  heatingTopic: 'kafkaHeating',
+  brokers: process.env.KAFKA_BROKER,
   connectionTimeout: 3000,
   authenticationTimeout: 1000,
   reauthenticationThreshold: 10000,

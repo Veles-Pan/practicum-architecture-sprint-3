@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Device } from './enitities/device.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { appConfig } from './app.config';
+import { KafkaProducerModule } from './kafka/kafka-producer.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { appConfig } from './app.config';
       }),
     }),
     TypeOrmModule.forFeature([Device]),
+    KafkaProducerModule,
   ],
   controllers: [DeviceController],
   providers: [ConfigService, DeviceService],

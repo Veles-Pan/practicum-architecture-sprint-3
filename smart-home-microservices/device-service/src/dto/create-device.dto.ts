@@ -5,6 +5,8 @@ export class CreateDeviceDto {
 
   serialNumber: string;
 
+  service: string;
+
   name?: string;
 
   configuration?: any;

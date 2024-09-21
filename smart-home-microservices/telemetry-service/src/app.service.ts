@@ -18,10 +18,12 @@ export class TelemetryService {
    * @returns Последняя запись телеметрии
    */
   async getLatestTelemetry(deviceId: string): Promise<TelemetryData> {
-    return this.telemetryRepository.findOne({
+    const data = await this.telemetryRepository.findOne({
       where: { deviceId },
       order: { timestamp: 'DESC' },
     });
+
+    return data;
   }
 
   /**
@@ -38,7 +40,7 @@ export class TelemetryService {
     endTime: string,
     limit: number = 100,
   ): Promise<TelemetryData[]> {
-    return this.telemetryRepository.find({
+    const data = await this.telemetryRepository.find({
       where: {
         deviceId,
         timestamp: Between(new Date(startTime), new Date(endTime)),
@@ -46,6 +48,8 @@ export class TelemetryService {
       order: { timestamp: 'DESC' },
       take: limit,
     });
+
+    return data;
   }
 
   /**
@@ -56,7 +60,8 @@ export class TelemetryService {
   async saveTelemetryData(
     telemetryData: Partial<TelemetryData>,
   ): Promise<TelemetryData> {
-    const newTelemetry = this.telemetryRepository.create(telemetryData);
+    const newTelemetry = await this.telemetryRepository.create(telemetryData);
+
     const data = await this.telemetryRepository.save(newTelemetry);
 
     await this.publishMessage(

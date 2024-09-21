@@ -13,6 +13,9 @@ export class Device {
   houseId: string;
 
   @Column()
+  service: string;
+
+  @Column()
   serialNumber: string;
 
   @Column({ default: 'inactive' })

@@ -6,12 +6,14 @@ import { Device } from './enitities/device.entity';
 import { UpdateDeviceStatusDto } from './dto/update-device-status.dto';
 import { SendCommandDto } from './dto/send-command.dto';
 import { CreateDeviceDto } from './dto/create-device.dto';
+import { KafkaProducerService } from './kafka/kafka-producer.service';
 
 @Injectable()
 export class DeviceService {
   constructor(
     @InjectRepository(Device)
     private readonly deviceRepository: Repository<Device>,
+    private readonly KafkaProducerService: KafkaProducerService,
   ) {}
 
   async getDevice(deviceId: string): Promise<Device> {
@@ -24,10 +26,9 @@ export class DeviceService {
     return device;
   }
 
-  async updateDeviceStatus(
-    deviceId: string,
-    updateDeviceStatusDto: UpdateDeviceStatusDto,
-  ): Promise<{ message: string }> {
+  async updateDeviceStatus(updateDeviceStatusDto: UpdateDeviceStatusDto) {
+    const { deviceId, status } = updateDeviceStatusDto;
+
     const device = await this.deviceRepository.findOne({
       where: { id: deviceId },
     });
@@ -35,16 +36,17 @@ export class DeviceService {
       throw new NotFoundException('Device not found');
     }
 
-    device.status = updateDeviceStatusDto.status;
-    await this.deviceRepository.save(device);
+    device.status = status;
+    const newDevice = await this.deviceRepository.save(device);
 
-    return { message: 'Device status updated successfully.' };
+    return newDevice;
   }
 
   async sendCommandToDevice(
-    deviceId: string,
     sendCommandDto: SendCommandDto,
   ): Promise<{ message: string }> {
+    const { deviceId, command, parameters } = sendCommandDto;
+
     const device = await this.deviceRepository.findOne({
       where: { id: deviceId },
     });
@@ -59,8 +61,8 @@ export class DeviceService {
 
     // Отправка команды устройству
     console.log(
-      `Sending command to device ${deviceId}: ${sendCommandDto.command}, parameters: ${JSON.stringify(
-        sendCommandDto.parameters,
+      `Sending command to device ${deviceId}: ${command}, parameters: ${JSON.stringify(
+        parameters,
       )}`,
     );
 
@@ -71,6 +73,18 @@ export class DeviceService {
 
   async createDevice(createDeviceDto: CreateDeviceDto): Promise<Device> {
     const device = this.deviceRepository.create(createDeviceDto);
-    return this.deviceRepository.save(device);
+    const newData = await this.deviceRepository.save(device);
+
+    if (createDeviceDto.service === 'heating') {
+      await this.publishMessage(
+        JSON.stringify({ value: newData.id, command: 'create_device' }),
+      );
+    }
+
+    return newData;
+  }
+
+  publishMessage(message: string): Promise<void> {
+    return this.KafkaProducerService.publish(message);
   }
 }

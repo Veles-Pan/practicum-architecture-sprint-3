@@ -15,11 +15,8 @@ export class HeatingService {
     private readonly KafkaProducerService: KafkaProducerService,
   ) {}
 
-  async setTargetTemperature(
-    deviceId: string,
-    updateTargetTemperatureDto: UpdateTargetTemperatureDto,
-  ): Promise<void> {
-    const { targetTemperature } = updateTargetTemperatureDto;
+  async setTargetTemperature(data: UpdateTargetTemperatureDto): Promise<any> {
+    const { targetTemperature, deviceId } = data;
 
     let heatingDevice = await this.heatingRepository.findOne({
       where: { deviceId },
@@ -29,22 +26,21 @@ export class HeatingService {
     }
 
     heatingDevice.targetTemperature = targetTemperature;
-    await this.heatingRepository.save(heatingDevice);
+    const newData = await this.heatingRepository.save(heatingDevice);
 
     await this.publishMessage(
       JSON.stringify({
-        device_id: deviceId,
+        deviceId: deviceId,
         command: 'set_target_temperature',
         parameters: { target_temperature: targetTemperature },
       }),
     );
+
+    return newData;
   }
 
-  async setHeatingStatus(
-    deviceId: string,
-    updateHeatingStatusDto: UpdateHeatingStatusDto,
-  ): Promise<void> {
-    const { status } = updateHeatingStatusDto;
+  async setHeatingStatus(data: UpdateHeatingStatusDto): Promise<any> {
+    const { status, deviceId } = data;
 
     let heatingDevice = await this.heatingRepository.findOne({
       where: { deviceId },
@@ -53,16 +49,29 @@ export class HeatingService {
       heatingDevice = this.heatingRepository.create({ deviceId });
     }
 
-    heatingDevice.isOn = status === 'on';
-    await this.heatingRepository.update({ deviceId }, heatingDevice);
+    const newData = await this.heatingRepository.update(
+      { deviceId },
+      heatingDevice,
+    );
 
     await this.publishMessage(
       JSON.stringify({
-        device_id: deviceId,
+        deviceId: deviceId,
         command: 'set_heating_status',
         parameters: { status },
       }),
     );
+
+    return newData;
+  }
+
+  async createDevice(deviceId: string): Promise<any> {
+    const INITIAL_TARGET_TEMPERATURE = 20;
+    const heatingDevice = this.heatingRepository.create({
+      deviceId,
+      targetTemperature: INITIAL_TARGET_TEMPERATURE,
+    });
+    return this.heatingRepository.save(heatingDevice);
   }
 
   async checkCurrentTemperature({
@@ -85,11 +94,11 @@ export class HeatingService {
     const currentTemp = parseFloat(value);
 
     if (currentTemp > maxTemp) {
-      this.setHeatingStatus(deviceId, { status: 'off' });
+      this.setHeatingStatus({ deviceId, status: 'off' });
     }
 
     if (currentTemp < minTemp) {
-      this.setHeatingStatus(deviceId, { status: 'on' });
+      this.setHeatingStatus({ deviceId, status: 'on' });
     }
   }
 

@@ -4,6 +4,8 @@ services:
     telemetry_db:
         image: postgres:15
         container_name: telemetry_db
+        networks:
+            - broker-kafka
         environment:
             POSTGRES_PASSWORD: postgrespassword
             POSTGRES_USER: postgres
@@ -14,6 +16,8 @@ services:
     heating_db:
         image: postgres:15
         container_name: heating_db
+        networks:
+            - broker-kafka
         environment:
             POSTGRES_PASSWORD: postgrespassword
             POSTGRES_USER: postgres
@@ -24,12 +28,80 @@ services:
     device_db:
         image: postgres:15
         container_name: device_db
+        networks:
+            - broker-kafka
         environment:
             POSTGRES_PASSWORD: postgrespassword
             POSTGRES_USER: postgres
             POSTGRES_DB: device_db
         ports:
             - 5436:5432
+
+    telemetry_service:
+        build:
+            context: ./smart-home-microservices/telemetry-service
+            dockerfile: Dockerfile
+        container_name: telemetry_service
+        networks:
+            - broker-kafka
+        depends_on:
+            - telemetry_db
+            - kafka
+        ports:
+            - 3334:3334
+        environment:
+            KAFKA_BROKER: kafka:29092
+            DATABASE_URL: postgresql://postgres:postgrespassword@telemetry_db:5432/telemetry_db
+
+    heating_service:
+        build:
+            context: ./smart-home-microservices/heating-service
+            dockerfile: Dockerfile
+        container_name: heating_service
+        networks:
+            - broker-kafka
+        depends_on:
+            - heating_db
+            - kafka
+        ports:
+            - 3335:3335
+        environment:
+            KAFKA_BROKER: kafka:29092
+            DATABASE_URL: postgresql://postgres:postgrespassword@heating_db:5432/heating_db
+
+    device_service:
+        build:
+            context: ./smart-home-microservices/device-service
+            dockerfile: Dockerfile
+        container_name: device_service
+        networks:
+            - broker-kafka
+        depends_on:
+            - device_db
+            - kafka
+        ports:
+            - 3336:3336
+        environment:
+            KAFKA_BROKER: kafka:29092
+            DATABASE_URL: postgresql://postgres:postgrespassword@device_db:5432/device_db
+
+    api-gateway:
+        build:
+            context: ./smart-home-microservices/api-gateway
+            dockerfile: Dockerfile
+        container_name: api-gateway
+        networks:
+            - broker-kafka
+        depends_on:
+            - telemetry_service
+            - heating_service
+            - device_service
+        ports:
+            - 3333:3333
+        environment:
+            TELEMETRY_SERVICE_URL: http://telemetry_service:3334
+            HEATING_SERVICE_URL: http://heating_service:3335
+            DEVICE_SERVICE_URL: http://device_service:3336
 
     zookeeper:
         image: confluentinc/cp-zookeeper:latest

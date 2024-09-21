@@ -1,24 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppConfig } from './app.config';
-import { ConfigService } from '@nestjs/config';
+
+import { Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.createMicroservice(AppModule, {
+    transport: Transport.TCP,
+    options: {
+      host: 'telemetry_service',
+      port: 3334,
+    },
+  });
 
-  const config = new DocumentBuilder()
-    .setTitle('Telemetry Service')
-    .setDescription('API для управления телеметрией')
-    .setVersion('1.0')
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
-
-  const appCongig = app.get(ConfigService);
-
-  const port = appCongig.get<AppConfig['port']>('port', 3334);
-
-  await app.listen(port);
+  await app.listen();
 }
 bootstrap();

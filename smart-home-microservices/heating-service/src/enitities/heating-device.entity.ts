@@ -9,12 +9,12 @@ export class HeatingDevice {
   @Column()
   deviceId: string; // ID устройства из Device Service
 
-  @Column({ default: false })
-  isOn: boolean;
-
   @Column('float', { nullable: true })
   targetTemperature: number;
 
   @Column({ type: 'timestamptz', default: () => 'NOW()' })
   updatedAt: Date;
+
+  @Column({ type: 'timestamptz', default: () => 'NOW()' })
+  createdAt: Date;
 }

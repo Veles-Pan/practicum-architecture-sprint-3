@@ -1,5 +1,5 @@
 # Используем официальный образ Node.js
-FROM node:16
+FROM node:16 as app
 
 ARG DATABASE_URL
 ARG KAFKA_BROKER

@@ -24,7 +24,7 @@ export class KafkaProducerService {
   async publish(message: any): Promise<void> {
     await this.producer.connect();
     await this.producer.send({
-      topic: kafkaConfig.telemetryTopic,
+      topic: kafkaConfig.heatingTopic,
       messages: [{ value: message }],
     });
   }
