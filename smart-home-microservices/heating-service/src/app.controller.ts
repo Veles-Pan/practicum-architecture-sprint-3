@@ -12,23 +12,21 @@ export class HeatingTcpController {
 
   @MessagePattern('set-target-temperature')
   getLatestTelemetry(data: { data: UpdateTargetTemperatureDto }) {
-    console.log('TCP set-target-temperature');
     return this.heatingService.setTargetTemperature(data.data);
   }
 
   @MessagePattern('set-heating-status')
   setHeatingStatus(data: { data: UpdateHeatingStatusDto }) {
-    console.log('TCP set-heating-status');
     return this.heatingService.setHeatingStatus(data.data);
   }
 
   @MessagePattern(kafkaConfig.telemetryTopic)
   async getMessage(@Payload(new ParseMessagePipe()) message): Promise<void> {
     if (message.command === 'save_telemetry_data') {
-      console.log('Kafka save_telemetry_data');
+      console.log('Kafka save_telemetry_data', message.value);
       await this.heatingService.checkCurrentTemperature(message.value);
     }
-    console.log(message);
+
   }
 
   @MessagePattern(kafkaConfig.heatingTopic)
@@ -37,6 +35,6 @@ export class HeatingTcpController {
       console.log('Kafka create_device', message.value);
       await this.heatingService.createDevice(message.value);
     }
-    console.log(message);
+
   }
 }

@@ -161,7 +161,7 @@ export class AppController {
     description: 'Данные для регистрации устройства',
     type: Object,
   })
-  @Post()
+  @Post('create-device')
   async createDevice(
     @Body()
     data: CreateDeviceDto,
@@ -212,7 +212,7 @@ export class AppController {
     description: 'Идентификатор устройства',
     type: String,
   })
-  @Get(':deviceId')
+  @Get('get-device/:deviceId')
   async getDevice(@Param('deviceId') deviceId: string): Promise<any> {
     return this.appService.getDevice(deviceId);
   }
@@ -233,7 +233,7 @@ export class AppController {
     description: 'Данные для обновления статуса устройства',
     type: Object,
   })
-  @Put(':deviceId/status')
+  @Put('update-device-status/:deviceId')
   async updateDeviceStatus(
     @Param('deviceId') deviceId: string,
     @Body() data: { status: string },

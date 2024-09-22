@@ -11,7 +11,6 @@ export class TelemetryController {
 
   @MessagePattern('get-telemetry')
   getLatestTelemetry(data: { deviceId: string }) {
-    console.log('telemetry', data);
     return this.telemetryService.getLatestTelemetry(data.deviceId);
   }
 
@@ -22,7 +21,6 @@ export class TelemetryController {
     endTime: string;
     limit: number;
   }) {
-    console.log('telemetry history', data);
     return this.telemetryService.getTelemetryHistory(
       data.deviceId,
       data.startTime,
@@ -33,7 +31,6 @@ export class TelemetryController {
 
   @MessagePattern('save-telemetry-data')
   saveTelemetryData(data: { data: { data: Partial<TelemetryData> } }) {
-    console.log('telemetry save', data);
     return this.telemetryService.saveTelemetryData(data.data);
   }
 }

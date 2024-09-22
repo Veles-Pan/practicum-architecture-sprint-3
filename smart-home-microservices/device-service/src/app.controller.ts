@@ -16,25 +16,21 @@ export class DeviceController {
 
   @MessagePattern('update-device-status')
   getLatestTelemetry(data: { data: UpdateDeviceStatusDto }) {
-    console.log('update-device-status', data.data.deviceId);
     return this.deviceService.updateDeviceStatus(data.data);
   }
 
   @MessagePattern('send-command-to-device')
   sendCommandToDevice(data: { data: SendCommandDto }) {
-    console.log('send-command-to-device', data);
     return this.deviceService.sendCommandToDevice(data.data);
   }
 
   @MessagePattern('get-device')
   getDevice(data: { deviceId: string }): Promise<Device> {
-    console.log('get-device', data);
     return this.deviceService.getDevice(data.deviceId);
   }
 
   @MessagePattern('create-device')
   createDevice(@Payload() data: CreateDeviceDto): Promise<Device> {
-    console.log('create-device');
     return this.deviceService.createDevice(data);
   }
 

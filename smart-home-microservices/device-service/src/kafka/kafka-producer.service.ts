@@ -9,7 +9,6 @@ export class KafkaProducerService {
   private producer: Producer;
 
   constructor() {
-    console.log(kafkaConfig.brokers);
     this.kafkaInstance = new Kafka({
       clientId: kafkaConfig.clientId,
       brokers: [kafkaConfig.brokers],
