@@ -1,74 +1,87 @@
-# Базовая настройка
+# Базовая архитектура
 
-## Запуск minikube
+Мной был реализован сервис умного дома с использованием микровервисов на NestJS.
 
-[Инструкция по установке](https://minikube.sigs.k8s.io/docs/start/)
+Проект содержит:
 
-```bash
-minikube start
-```
+-   API Gateway, который является точкой входа для пользователей и девайсов. Он и распределяет трафик по микросервисам
 
+-   Kafka, с помощью которой осуществялется взамодействие между сервисами
 
-## Добавление токена авторизации GitHub
+-   Device Service сервис для работы с утройствами. Здесь находится возможность зарегистрировать новые устройтва или отправить команду девайсу. В этом сервисе хранится техническая информация обо всех девайсах (так как в будущем в компании будет не только сервис для отопления)
 
-[Получение токена](https://github.com/settings/tokens/new)
+-   Heating Service сервис для управления отоплением. В нём хранятся настройки отопления для всех устройств и через него можно устанавливать желаему температуру, а также отправлять в Device Service запрос на включение или отключение отопления, если температура стала больше/меньше желаемой
 
-```bash
-kubectl create secret docker-registry ghcr --docker-server=https://ghcr.io --docker-username=<github_username> --docker-password=<github_token> -n default
-```
+-   Telemetry Service сервис телеметрии для Heating Service. Собирает данные с датчиков, хранит историю температур и передаёт в Kafka сообщения об изменении температуры
 
+В данном проекте подготовлено MVP с тремя основными сервисами. В дальнейшем можно будет расширить архитектуру и добавить множество разных сервисов: управление освещением, камерами, замками.
 
-## Установка API GW kusk
-
-[Install Kusk CLI](https://docs.kusk.io/getting-started/install-kusk-cli)
+## Запуск docker
 
 ```bash
-kusk cluster install
+docker compose up
 ```
 
+## Swagger
 
-## Настройка terraform
+Swagger документацию вы сможете найти по адресу `http://localhost:3333/api`
 
-[Установите Terraform](https://yandex.cloud/ru/docs/tutorials/infrastructure-management/terraform-quickstart#install-terraform)
+## Как протестировать?
 
+Можно сделать несколько curl-запросов в API GATEWAY, чтобы проверить работоспособность сервисов и их общение через Kafka
 
-Создайте файл ~/.terraformrc
+1. Создание девайса типа "отопление"
 
-```hcl
-provider_installation {
-  network_mirror {
-    url = "https://terraform-mirror.yandexcloud.net/"
-    include = ["registry.terraform.io/*/*"]
-  }
-  direct {
-    exclude = ["registry.terraform.io/*/*"]
-  }
-}
-```
-
-## Применяем terraform конфигурацию 
+В базе device_db появится новая запись. А если `service` будет равен `heating`, то в кафку улетит сообщение на создание нового устройства для обогрева
 
 ```bash
-cd terraform
-terraform apply
+curl -X 'POST' \
+  'http://localhost:3333/' \
+  -H 'accept: */*' \
+  -H 'Content-Type: application/json' \
+  -d '{
+"deviceTypeId": "type-1",
+"houseId": "sweet-home",
+"serialNumber": "123",
+"service": "heating",
+"name": "heater-3000"
+}'
 ```
 
-## Настройка API GW
+2. Отправка телеметрии
+
+У устройства для обогрева выставляется дефолтный `targetTemperature`. Сервис телеметрии шлёт сообщения в Kafka, когда получает данные. `HeatingService` получает эти данные и решает, стоит ли послать в Kafka сообщение о том, что устройство отопления надо включить или выключить. Обычно он принимает решение, когда температура больше или меньше на 1 градус
+
+Поэтому при отправке этого запроса device_service пошлёт команду устройсву: `set_heating_status, parameters: {"status":"off"}`
 
 ```bash
-kusk deploy -i api.yaml
+curl -X 'POST' \
+  'http://localhost:3333/set-telemetry/0ad46358-810f-4465-922a-dfa15563e0c6' \
+  -H 'accept: */*' \
+  -H 'Content-Type: application/json' \
+  -d '{"value": 35, "unit": "C", "timestamp": "2024-09-21 23:54:40.506154+00"}'
 ```
 
-## Проверяем работоспособность
+3. Обновление targetTemperature
+
+Мы можем обновить `targetTemperature` до 34 градусов, чтобы устройство не реагировало на температуру 35 градусов
 
 ```bash
-kubectl port-forward svc/kusk-gateway-envoy-fleet -n kusk-system 8080:80
-curl localhost:8080/hello
+curl -X 'PUT' \
+  'http://localhost:3333/set-target-temperature/0ad46358-810f-4465-922a-dfa15563e0c6' \
+  -H 'accept: */*' \
+  -H 'Content-Type: application/json' \
+  -d '{"targetTemperature": 34}'
 ```
 
+И тогда при вызове команды выше по отправке телеметрии в 35 градуса в Kafka не полетит запрос от `HeatingService` на изменение температуры девайса
 
-## Delete minikube
+## Задания первой части:
 
-```bash
-minikube delete
-```
+-   [Задание 1.1 по анализу монолита](./docs/tasks/task_1-1.md)
+
+-   [Задание 1.2 по архитектуре микросервисов](./docs/tasks/task_1-2.md)
+
+-   [Задание 1.3 по ER-диаграмме](./docs/tasks/task-1-3.md)
+
+-   [Задание 1.4 по документрированию апи](./docs/api)
