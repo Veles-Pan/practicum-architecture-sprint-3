@@ -52,6 +52,10 @@
 
 ### Уровень сервисов
 
+### Api Gateway
+
+![Api Gateway](../diagrams/out/task_2/api_gateway_component.png)
+
 #### User Service
 
 ![User Service](../diagrams/out/task_2/user_service_component.png)

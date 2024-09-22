@@ -6,7 +6,6 @@ import { HeatingDevice } from './enitities/heating-device.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { appConfig } from './app.config';
 import { KafkaProducerModule } from './kafka/kafka-producer.module';
-import { HeatingKafkaController } from './kafka.controller';
 
 @Module({
   imports: [
@@ -23,7 +22,7 @@ import { HeatingKafkaController } from './kafka.controller';
     TypeOrmModule.forFeature([HeatingDevice]),
     KafkaProducerModule,
   ],
-  controllers: [HeatingTcpController, HeatingKafkaController],
+  controllers: [HeatingTcpController],
   providers: [ConfigService, HeatingService],
 })
 export class AppModule {}
