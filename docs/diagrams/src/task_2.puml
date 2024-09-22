@@ -334,12 +334,6 @@ class TemperatureRecord {
 ' Взаимодействия в контексте Управления устройствами
 HeatingController --> HeatingControlService
 HeatingControlService --> HeatingRepository
-HeatingControlService --> CommandPublisher
-
-' Взаимодействия в контексте Мониторинга
-MonitoringController --> TemperatureMonitoringService
-TemperatureMonitoringService --> HeatingRepository
-SensorDataProcessor --> HeatingRepository
-Kafka --> SensorDataProcessor
+HeatingControlService --> CommandPublishers
 
 @enduml
