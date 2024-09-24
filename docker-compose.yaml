@@ -47,6 +47,7 @@ services:
         depends_on:
             - telemetry_db
             - kafka
+            - kafka-setup
         ports:
             - 3334:3334
         environment:
@@ -63,6 +64,8 @@ services:
         depends_on:
             - heating_db
             - kafka
+            - kafka-setup
+            - telemetry_service
         ports:
             - 3335:3335
         environment:
@@ -79,6 +82,9 @@ services:
         depends_on:
             - device_db
             - kafka
+            - kafka-setup
+            - telemetry_service
+            - heating_service
         ports:
             - 3336:3336
         environment:
@@ -126,6 +132,29 @@ services:
             KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
             KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
             KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        healthcheck:
+            test: ["CMD", "nc", "-z", "localhost", "9092"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    kafka-setup:
+        image: confluentinc/cp-kafka:latest
+        depends_on:
+            - kafka
+        entrypoint:
+            - /bin/sh
+            - -c
+            - |
+                # Ожидание Kafka
+                while ! nc -z kafka 9092; do   
+                sleep 0.1
+                done;
+                # Создание топиков
+                kafka-topics --create --topic kafka-telemetry --bootstrap-server kafka:29092 --replication-factor 1 --partitions 1;
+                kafka-topics --create --topic kafkaHeating --bootstrap-server kafka:29092 --replication-factor 1 --partitions 1;
+        networks:
+            - broker-kafka
 
     kafdrop:
         image: obsidiandynamics/kafdrop:latest

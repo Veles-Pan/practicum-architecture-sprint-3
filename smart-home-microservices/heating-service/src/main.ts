@@ -22,10 +22,18 @@ async function bootstrap() {
     options: {
       client: {
         brokers: [kafkaConfig.brokers],
+        retry: {
+          retries: 10,           // Количество попыток подключения
+          initialRetryTime: 1000, // Начальная задержка (в миллисекундах)
+          factor: 2,             // Множитель для увеличения времени задержки (экспоненциальный рост)
+          maxRetryTime: 3000,   // Максимальное время ожидания между попытками (в миллисекундах)
+        },
       },
       consumer: {
         groupId: kafkaConfig.groupId,
+      
       },
+      
     },
   });
 
