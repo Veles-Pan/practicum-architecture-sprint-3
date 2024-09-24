@@ -3,9 +3,9 @@ info:
     title: Device Service API
     version: 1.0.0
 servers:
-    - url: /devices
+    - url: /
 paths:
-    /:
+    /devices:
         get:
             summary: Получение списка устройств
             responses:
@@ -34,7 +34,7 @@ paths:
                                 $ref: "#/components/schemas/Device"
                 "400":
                     description: Некорректный запрос
-    /{device_id}:
+    /devices/{device_id}:
         get:
             summary: Получение информации об устройстве
             parameters:
@@ -77,7 +77,7 @@ paths:
                     description: Некорректный запрос
                 "404":
                     description: Устройство не найдено
-    /{device_id}/status:
+    /devices/{device_id}/status:
         put:
             summary: Обновление состояния устройства
             parameters:
@@ -106,7 +106,7 @@ paths:
                     description: Некорректный запрос
                 "404":
                     description: Устройство не найдено
-    /{device_id}/commands:
+    /devices/{device_id}/commands:
         post:
             summary: Отправка команды устройству
             parameters:

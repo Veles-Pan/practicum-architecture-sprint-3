@@ -3,9 +3,9 @@ info:
     title: Heating Service API
     version: 1.0.0
 servers:
-    - url: /heating
+    - url: /
 paths:
-    /devices/{device_id}/target-temperature:
+    /heating/{device_id}/target-temperature:
         put:
             summary: Установка целевой температуры
             parameters:
@@ -34,7 +34,7 @@ paths:
                     description: Некорректный запрос
                 "404":
                     description: Устройство не найдено
-    /devices/{device_id}/status:
+    /heating/{device_id}/status:
         put:
             summary: Включение/выключение отопления
             parameters:

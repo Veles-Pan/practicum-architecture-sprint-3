@@ -3,9 +3,9 @@ info:
     title: Telemetry Service API
     version: 1.0.0
 servers:
-    - url: /telemetry
+    - url: /
 paths:
-    /devices/{device_id}/latest:
+    /telemetry/{device_id}/latest:
         get:
             summary: Получение последних данных телеметрии
             parameters:
@@ -25,7 +25,7 @@ paths:
                                 $ref: "#/components/schemas/TelemetryData"
                 "404":
                     description: Данные для устройства не найдены
-    /devices/{device_id}:
+    /telemetry/{device_id}:
         get:
             summary: Получение исторических данных телеметрии
             parameters:
