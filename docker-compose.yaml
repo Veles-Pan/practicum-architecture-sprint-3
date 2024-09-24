@@ -1,0 +1,172 @@
+version: "3"
+
+services:
+    telemetry_db:
+        image: postgres:15
+        container_name: telemetry_db
+        networks:
+            - broker-kafka
+        environment:
+            POSTGRES_PASSWORD: postgrespassword
+            POSTGRES_USER: postgres
+            POSTGRES_DB: telemetry_db
+        ports:
+            - 5432:5432
+
+    heating_db:
+        image: postgres:15
+        container_name: heating_db
+        networks:
+            - broker-kafka
+        environment:
+            POSTGRES_PASSWORD: postgrespassword
+            POSTGRES_USER: postgres
+            POSTGRES_DB: heating_db
+        ports:
+            - 5434:5432
+
+    device_db:
+        image: postgres:15
+        container_name: device_db
+        networks:
+            - broker-kafka
+        environment:
+            POSTGRES_PASSWORD: postgrespassword
+            POSTGRES_USER: postgres
+            POSTGRES_DB: device_db
+        ports:
+            - 5436:5432
+
+    telemetry_service:
+        build:
+            context: ./smart-home-microservices/telemetry-service
+            dockerfile: Dockerfile
+        container_name: telemetry_service
+        networks:
+            - broker-kafka
+        depends_on:
+            - telemetry_db
+            - kafka
+            - kafka-setup
+        ports:
+            - 3334:3334
+        environment:
+            KAFKA_BROKER: kafka:29092
+            DATABASE_URL: postgresql://postgres:postgrespassword@telemetry_db:5432/telemetry_db
+
+    heating_service:
+        build:
+            context: ./smart-home-microservices/heating-service
+            dockerfile: Dockerfile
+        container_name: heating_service
+        networks:
+            - broker-kafka
+        depends_on:
+            - heating_db
+            - kafka
+            - kafka-setup
+            - telemetry_service
+        ports:
+            - 3335:3335
+        environment:
+            KAFKA_BROKER: kafka:29092
+            DATABASE_URL: postgresql://postgres:postgrespassword@heating_db:5432/heating_db
+
+    device_service:
+        build:
+            context: ./smart-home-microservices/device-service
+            dockerfile: Dockerfile
+        container_name: device_service
+        networks:
+            - broker-kafka
+        depends_on:
+            - device_db
+            - kafka
+            - kafka-setup
+            - telemetry_service
+            - heating_service
+        ports:
+            - 3336:3336
+        environment:
+            KAFKA_BROKER: kafka:29092
+            DATABASE_URL: postgresql://postgres:postgrespassword@device_db:5432/device_db
+
+    api-gateway:
+        build:
+            context: ./smart-home-microservices/api-gateway
+            dockerfile: Dockerfile
+        container_name: api-gateway
+        networks:
+            - broker-kafka
+        depends_on:
+            - telemetry_service
+            - heating_service
+            - device_service
+        ports:
+            - 3333:3333
+        environment:
+            TELEMETRY_SERVICE_URL: http://telemetry_service:3334
+            HEATING_SERVICE_URL: http://heating_service:3335
+            DEVICE_SERVICE_URL: http://device_service:3336
+
+    zookeeper:
+        image: confluentinc/cp-zookeeper:latest
+        networks:
+            - broker-kafka
+        environment:
+            ZOOKEEPER_CLIENT_PORT: 2181
+            ZOOKEEPER_TICK_TIME: 2000
+
+    kafka:
+        image: confluentinc/cp-kafka:latest
+        networks:
+            - broker-kafka
+        depends_on:
+            - zookeeper
+        ports:
+            - 9092:9092
+        environment:
+            KAFKA_BROKER_ID: 1
+            KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+            KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+            KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        healthcheck:
+            test: ["CMD", "nc", "-z", "localhost", "9092"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    kafka-setup:
+        image: confluentinc/cp-kafka:latest
+        depends_on:
+            - kafka
+        entrypoint:
+            - /bin/sh
+            - -c
+            - |
+                # Ожидание Kafka
+                while ! nc -z kafka 9092; do   
+                sleep 0.1
+                done;
+                # Создание топиков
+                kafka-topics --create --topic kafka-telemetry --bootstrap-server kafka:29092 --replication-factor 1 --partitions 1;
+                kafka-topics --create --topic kafkaHeating --bootstrap-server kafka:29092 --replication-factor 1 --partitions 1;
+        networks:
+            - broker-kafka
+
+    kafdrop:
+        image: obsidiandynamics/kafdrop:latest
+        networks:
+            - broker-kafka
+        depends_on:
+            - kafka
+        ports:
+            - 19000:9000
+        environment:
+            KAFKA_BROKERCONNECT: kafka:29092
+
+networks:
+    broker-kafka:
+        driver: bridge

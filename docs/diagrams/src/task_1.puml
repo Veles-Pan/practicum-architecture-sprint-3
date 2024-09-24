@@ -1,0 +1,37 @@
+@startuml architecture_overview
+
+!include C4_Context.puml
+!include C4_Container.puml
+!include C4_Component.puml
+
+title Удалённое управление системой отопления
+
+' Акторы
+Person(User, "Пользователь", "Домовладелец, управляющий системой отопления через веб-интерфейс или мобильное приложение")
+System_Ext(TemperatureSensor, "Датчик температуры", "Передает текущие данные о температуре в систему")
+System_Ext(HeatingSystem, "Ситема отопления", "Принимает данные о нужной температуре или включении и выключении от системы")
+
+
+System_Boundary(HeatingSystemBoundary, "HeatingSystemController") {
+    ' Домены внутри монолита
+    System(HeatingControlDomain, "Модуль управления отоплением", "Включение/выключение отопления, установка целевой температуры, автоматическое поддержание температуры")
+    System(TemperatureMonitoringDomain, "Модуль мониторинга температуры", "Получение данных с датчиков, обработка и хранение данных о текущей температуре")
+
+}
+
+ContainerDb(database, "База данных", "PostgreSQL", "Хранит данные пользователей, настроек и истории температуры, данные о системах отопления")
+
+' Взаимодействия внешних акторов с системой
+Rel(User, HeatingControlDomain, "Управляет отоплением и выставляет настройки")
+Rel(User, TemperatureMonitoringDomain, "Просматривает текущую температуру")
+Rel(TemperatureSensor, TemperatureMonitoringDomain, "Передает данные о температуре") 
+Rel(HeatingSystem, HeatingControlDomain, "Получает команды на управление")
+
+' Взаимодействия внутри системы
+Rel(HeatingControlDomain, TemperatureMonitoringDomain, "Получает данные о текущей температуре")
+
+' Взаимодействия с базой данных
+Rel(HeatingControlDomain, database, "Чтение/Запись")
+Rel(TemperatureMonitoringDomain, database, "Чтение/Запись")
+
+@enduml

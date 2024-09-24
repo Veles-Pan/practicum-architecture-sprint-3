@@ -1,0 +1,110 @@
+openapi: 3.0.1
+info:
+    title: Telemetry Service API
+    version: 1.0.0
+servers:
+    - url: /
+paths:
+    /telemetry/{device_id}/latest:
+        get:
+            summary: Получение последних данных телеметрии
+            parameters:
+                - in: path
+                  name: device_id
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: Идентификатор устройства
+            responses:
+                "200":
+                    description: Последние данные телеметрии
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/TelemetryData"
+                "404":
+                    description: Данные для устройства не найдены
+    /telemetry/{device_id}:
+        get:
+            summary: Получение исторических данных телеметрии
+            parameters:
+                - in: path
+                  name: device_id
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: Идентификатор устройства
+                - in: query
+                  name: start_time
+                  required: true
+                  schema:
+                      type: string
+                      format: date-time
+                  description: Начало периода
+                - in: query
+                  name: end_time
+                  required: true
+                  schema:
+                      type: string
+                      format: date-time
+                  description: Конец периода
+                - in: query
+                  name: limit
+                  required: false
+                  schema:
+                      type: integer
+                      default: 100
+                  description: Максимальное количество записей
+            responses:
+                "200":
+                    description: Исторические данные телеметрии
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: "#/components/schemas/TelemetryData"
+                "400":
+                    description: Некорректные параметры запроса
+                "404":
+                    description: Данные для устройства не найдены
+        post:
+            summary: Отправка данных телеметрии
+            parameters:
+                - in: path
+                  name: device_id
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: Идентификатор устройства
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/TelemetryData"
+            responses:
+                "201":
+                    description: Данные успешно сохранены
+                "400":
+                    description: Некорректные данные
+                "404":
+                    description: Устройство не найдено
+components:
+    schemas:
+        TelemetryData:
+            type: object
+            properties:
+                device_id:
+                    type: string
+                    format: uuid
+                timestamp:
+                    type: string
+                    format: date-time
+                data:
+                    type: object
+                unit:
+                    type: string

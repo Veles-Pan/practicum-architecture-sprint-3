@@ -1,0 +1,389 @@
+@startuml smart_home_container
+
+!include C4_Context.puml
+!include C4_Container.puml
+!include C4_Component.puml
+
+' Акторы
+Person(User, "Пользователь", "Домовладелец, управляющий системой отопления через веб-интерфейс или мобильное приложение")
+System_Ext(TemperatureSensor, "Датчик температуры", "Передает текущие данные о температуре в систему")
+System_Ext(HeatingSystem, "Ситема отопления", "Принимает данные о нужной температуре или включении и выключении от системы")
+
+' Определение систем и контейнеров
+System_Boundary(system, "Умный Дом") {
+
+    ' API Gateway
+    Container(apiGateway, "API Gateway", "Маршрутизирует запросы и выполняет аутентификацию", "NestJS")
+
+    ' Микросервисы
+    Container(heatingService, "Heating Service", "Управление отоплением", "NestJS") 
+    Container(deviceService, "Device Service", "Управление устройствами", "NestJS")
+    Container(houseService, "House Service", "Управление умным домом", "NestJS")
+    Container(userService, "User Service", "Управление пользователями", "NestJS")
+    Container(telemetryService, "Telemetry Service", "Сбор и хранение телеметрии", "NestJS")
+    Container(notificationService, "Notification Service", "Уведомления пользователей", "NestJS")
+
+
+    ' Базы данных
+    ContainerDb(heatingDB, "Heating DB", "PostgreSQL", "База данных отопления")
+    ContainerDb(houseDB, "House DB", "PostgreSQL", "База данных умного дома")
+    ContainerDb(UserDB, "User DB", "PostgreSQL", "База данных пользователей")
+    ContainerDb(telemetryDB, "Telemetry DB", "PostgreSQL", "База данных телеметрии")
+    ContainerDb(deviceDB, "Device DB", "PostgreSQL", "База данных устройств")
+
+    ' Шина данных
+    Container(kafka, "Kafka", "Apache Kafka", "Шина данных для обмена сообщениями")
+
+}
+
+' Взаимодействия
+Rel(User, apiGateway, "Использует")
+Rel(TemperatureSensor, telemetryService, "Отправляет данные о температуре", "Kafka")
+Rel(apiGateway, heatingService, "Маршрутизирует запросы", "HTTP/REST")
+Rel(apiGateway, houseService, "Маршрутизирует запросы", "HTTP/REST")
+Rel(apiGateway, userService, "Маршрутизирует запросы", "HTTP/REST")
+Rel(apiGateway, deviceService, "Маршрутизирует запросы", "HTTP/REST")
+Rel(apiGateway, telemetryService, "Маршрутизирует запросы", "HTTP/REST")
+Rel(apiGateway, notificationService, "Маршрутизирует запросы", "HTTP/REST")
+
+' Микросервисы и их базы данных
+Rel(heatingService, heatingDB, "Чтение и запись")
+Rel(userService, UserDB, "Чтение и запись")
+Rel(houseService, houseDB, "Чтение и запись")
+Rel(notificationService, UserDB, "Чтение")
+Rel(telemetryService, telemetryDB, "Чтение и запись")
+Rel(deviceService, deviceDB, "Чтение и запись")
+
+' Микросервисы взаимодействуют через Kafka
+Rel(heatingService, kafka, "Публикует и подписывается на события", "Kafka")
+Rel(notificationService, kafka, "Подписывается на события и отправляет уведомления", "Kafka")
+Rel(deviceService, kafka, "Публикует и подписывается на события", "Kafka")
+Rel(houseService, kafka, "Подписывается на события", "Kafka")
+Rel(telemetryService, kafka, "Подписывается на события", "Kafka")
+
+
+' Уведомления пользователю
+Rel(notificationService, User, "Отправляет уведомления", "Email/SMS/Push")
+
+@enduml
+
+@startuml heating_service_component
+!include C4_Component.puml
+
+Container_Boundary(heatingService, "Heating Service") {
+
+    ' Контроллеры
+    Component(heatingTcpController, "Heating TCP Controller", "Microservice Controller", "Обрабатывает TCP и Kafka запросы управления отоплением")
+
+    ' Сервисы
+    Component(heatingServiceComponent, "Heating Service", "Бизнес-логика", "Управляет настройками и статусом отопления")
+
+    ' Компоненты Kafka
+    Component(kafkaProducerService, "Kafka Producer Service", "Компонент", "Публикует сообщения в Kafka")
+    Component(kafkaConsumerService, "Kafka Consumer Service", "Компонент", "Потребляет сообщения из Kafka")
+
+    ' Репозитории
+    Component(heatingRepository, "Heating Repository", "Доступ к данным отопления", "TypeORM Repository")
+
+    ' Пайпы
+    Component(parseMessagePipe, "Parse Message Pipe", "Пайп", "Парсит входящие сообщения")
+}
+
+ContainerDb(heatingDB, "Heating DB", "PostgreSQL", "Хранит данные отопления")
+Container(kafka, "Kafka", "Apache Kafka", "Шина данных")
+
+' Взаимодействия компонентов
+Rel(heatingTcpController, heatingServiceComponent, "Вызывает методы")
+Rel(heatingServiceComponent, heatingRepository, "Читает/Записывает данные")
+Rel(heatingServiceComponent, kafkaProducerService, "Публикует команды")
+Rel(kafkaProducerService, kafka, "Отправляет сообщения", "Kafka")
+Rel(kafka, kafkaConsumerService, "Получает сообщения", "Kafka")
+Rel(kafkaConsumerService, heatingServiceComponent, "Обрабатывает сообщения")
+Rel(kafkaConsumerService, parseMessagePipe, "Парсит сообщения")
+Rel(parseMessagePipe, heatingServiceComponent, "Передает данные")
+Rel(heatingRepository, heatingDB, "Чтение и запись")
+
+@enduml
+
+
+@startuml telemetry_service_component
+!include C4_Component.puml
+
+Container_Boundary(telemetryService, "Telemetry Service") {
+
+    Component(telemetryController, "Telemetry Controller", "REST Controller", "Обрабатывает запросы телеметрии")
+    Component(telemetryProcessor, "Telemetry Processor", "Обрабатывает телеметрию и генерирует алерты")
+    Component(telemetryRepository, "Telemetry Repository", "Доступ к данным телеметрии")
+    Component(telemetryConsumer, "Telemetry Consumer", "Kafka Consumer", "Потребляет данные телеметрии")
+    Component(alertGenerator, "Alert Generator", "Генерирует алерты на основе телеметрии")
+}
+
+ContainerDb(telemetryDB, "Telemetry DB", "PostgreSQL", "Хранит данные телеметрии")
+Container(kafka, "Kafka", "Apache Kafka", "Шина данных")
+
+' Interactions
+Rel(telemetryController, telemetryProcessor, "Отправляет данные")
+Rel(telemetryProcessor, telemetryRepository, "Читает и записывает данные")
+Rel(telemetryProcessor, alertGenerator, "Генерирует алерты")
+Rel(telemetryRepository, telemetryDB, "Чтение и запись")
+
+Rel(kafka, telemetryConsumer, "Потребляет данные", "Kafka")
+Rel(telemetryConsumer, telemetryProcessor, "Отправляет данные")
+
+Rel(alertGenerator, kafka, "Отправляет алерты", "Kafka")
+
+@enduml
+
+
+@startuml device_service_component
+!include C4_Component.puml
+
+Container_Boundary(deviceService, "Device Service") {
+
+    ' Контроллеры
+    Component(deviceController, "Device Controller", "Microservice Controller", "Обрабатывает TCP и Kafka запросы управления устройствами")
+
+    ' Сервисы
+    Component(deviceServiceComponent, "Device Service", "Бизнес-логика", "Управляет регистрацией и состоянием устройств")
+
+    ' Компоненты Kafka
+    Component(kafkaProducerService, "Kafka Producer Service", "Компонент", "Публикует сообщения в Kafka")
+    Component(kafkaConsumerService, "Kafka Consumer Service", "Компонент", "Потребляет сообщения из Kafka")
+
+    ' Репозитории
+    Component(deviceRepository, "Device Repository", "Доступ к данным устройств", "TypeORM Repository")
+
+    ' Пайпы
+    Component(parseMessagePipe, "Parse Message Pipe", "Пайп", "Парсит входящие сообщения")
+}
+
+ContainerDb(deviceDB, "Device DB", "PostgreSQL", "Хранит данные устройств")
+Container(kafka, "Kafka", "Apache Kafka", "Шина данных")
+
+' Взаимодействия компонентов
+Rel(deviceController, deviceServiceComponent, "Вызывает методы")
+Rel(deviceServiceComponent, deviceRepository, "Читает/Записывает данные")
+Rel(deviceServiceComponent, kafkaProducerService, "Публикует команды")
+Rel(kafkaProducerService, kafka, "Отправляет сообщения", "Kafka")
+Rel(kafka, kafkaConsumerService, "Получает сообщения", "Kafka")
+Rel(kafkaConsumerService, deviceServiceComponent, "Обрабатывает сообщения")
+Rel(kafkaConsumerService, parseMessagePipe, "Парсит сообщения")
+Rel(parseMessagePipe, deviceServiceComponent, "Передает данные")
+Rel(deviceRepository, deviceDB, "Чтение и запись")
+
+@enduml
+
+@startuml api_gateway_component
+!include C4_Component.puml
+
+Container_Boundary(apiGateway, "API Gateway") {
+
+    ' Контроллеры
+    Component(appController, "App Controller", "REST Controller", "Обрабатывает HTTP запросы от пользователей")
+
+    ' Сервисы
+    Component(appService, "App Service", "Бизнес-логика", "Маршрутизирует запросы к микросервисам через Kafka")
+
+    ' Клиенты
+    Component(telemetryServiceClient, "Telemetry Service Client", "ClientProxy", "Отправляет запросы в Telemetry Service")
+    Component(heatingServiceClient, "Heating Service Client", "ClientProxy", "Отправляет запросы в Heating Service")
+    Component(deviceServiceClient, "Device Service Client", "ClientProxy", "Отправляет запросы в Device Service")
+}
+
+' Внешние компоненты
+
+' Взаимодействия компонентов
+Rel(appController, appService, "Вызывает методы")
+Rel(appService, telemetryServiceClient, "Отправляет запросы")
+Rel(appService, heatingServiceClient, "Отправляет запросы")
+Rel(appService, deviceServiceClient, "Отправляет запросы")
+
+' Клиенты взаимодействуют с Kafka
+Rel(telemetryServiceClient, telemetryService, "Отправляет запросы", "TCP")
+Rel(heatingServiceClient, heatingService, "Отправляет запросы", "TCP")
+Rel(deviceServiceClient, deviceService, "Отправляет запросы", "TCP")
+
+@enduml
+
+
+
+@startuml device_update_distributed_tracing
+
+title Обновление настроек устройства отопления
+
+actor User
+participant "API Gateway" as ApiGateway
+participant "Heating Service" as HeatingService
+participant "Heating Repository" as HeatingRepository
+participant "Kafka Producer Service" as KafkaProducer
+queue "Kafka Topic" as KafkaTopic
+participant "Device Service Client" as DeviceServiceClient
+participant "Kafka Consumer Service" as DeviceCommandProcessor
+participant "Device Service" as DeviceService
+participant "Device Communicator" as DeviceCommunicator
+participant "Physical Device" as PhysicalDevice
+
+User -> ApiGateway: Устанавливает новую температуру
+ApiGateway -> HeatingService: setTargetTemperature(deviceId, temperature)
+HeatingService -> HeatingRepository: Обновляет температуру
+HeatingRepository --> HeatingService: Подтверждение
+HeatingService -> KafkaProducer: Публикует команду
+KafkaProducer -> KafkaTopic: Сообщение команды
+KafkaTopic -> DeviceCommandProcessor: Потребляет команду
+DeviceCommandProcessor -> DeviceService: sendCommandToDevice(...)
+DeviceService -> DeviceCommunicator: Отправляет команду
+DeviceCommunicator -> PhysicalDevice: Отправляет команду
+PhysicalDevice --> DeviceCommunicator: Подтверждение
+DeviceCommunicator -> DeviceService: Обновляет статус устройства
+DeviceService -> DeviceRepository: Обновляет статус
+DeviceRepository --> DeviceService: Подтверждение
+DeviceService --> DeviceCommandProcessor: Подтверждение
+DeviceCommandProcessor --> KafkaTopic: Подтверждение
+KafkaTopic --> HeatingService: Подтверждение
+HeatingService --> ApiGateway: Подтверждение
+ApiGateway --> User: Успешный ответ
+
+@enduml
+
+@startuml user_service_component
+!include C4_Component.puml
+
+
+Container_Boundary(userService, "User Service") {
+    Component(authController, "Auth Controller", "REST Controller", "Обрабатывает запросы авторизации и аутентификации")
+    Component(userProfileController, "User Profile Controller", "REST Controller", "Управляет профилями пользователей")
+    Component(authService, "Authentication Service",  "Логика аутентификации")
+    Component(userServiceComponent, "User Service Component", "Управление данными пользователей")
+    Component(userRepository, "User Repository", "Доступ к данным пользователей в базе данных")
+}
+
+ContainerDb(userDB, "User DB", "PostgreSQL", "Хранит данные пользователей")
+
+' Взаимодействия компонентов
+Rel(authController, authService, "Вызывает")
+Rel(authService, userRepository, "Читает/Записывает данные")
+Rel(userProfileController, userServiceComponent, "Вызывает")
+Rel(userServiceComponent, userRepository, "Читает/Записывает данные")
+Rel(userRepository, userDB, "Чтение и запись", "JDBC")
+
+@enduml
+
+@startuml notification_service_component
+!include C4_Component.puml
+
+Container_Boundary(notificationService, "Notification Service") {
+    ' Компоненты
+    Component(eventConsumer, "Event Consumer",  "Потребляет события из Kafka")
+    Component(notificationProcessor, "Notification Processor",  "Обрабатывает события и формирует уведомления")
+    Component(emailSender, "Email Sender","Отправляет Email уведомления")
+    Component(smsSender, "SMS Sender", "Отправляет SMS уведомления")
+    Component(pushSender, "Push Notification Sender",  "Отправляет Push-уведомления")
+    Component(userPreferenceService, "User Preference Service",  "Получает предпочтения пользователей по каналам связи")
+}
+
+' Внешние системы
+Container(kafka, "Kafka", "Apache Kafka", "Шина данных для обмена сообщениями")
+System_Ext(emailService, "Email Service",  "Сервис для отправки Email")
+System_Ext(smsService, "SMS Service", "Сервис для отправки SMS")
+System_Ext(pushService, "Push Service",  "Сервис для отправки Push-уведомлений")
+Container(userService, "User Service", "Управление пользователями и их предпочтениями")
+
+' Взаимодействия компонентов
+Rel(eventConsumer, notificationProcessor, "Передает события")
+Rel(notificationProcessor, userPreferenceService, "Получает предпочтения пользователей")
+Rel(notificationProcessor, emailSender, "Отправляет Email")
+Rel(notificationProcessor, smsSender, "Отправляет SMS")
+Rel(notificationProcessor, pushSender, "Отправляет Push-уведомления")
+
+' Взаимодействие с внешними системами
+Rel(emailSender, emailService, "Отправляет Email")
+Rel(smsSender, smsService, "Отправляет SMS")
+Rel(pushSender, pushService, "Отправляет Push-уведомления")
+
+' Интеграция с Kafka
+Rel(kafka, eventConsumer, "Потребляет события", "Kafka")
+
+' Взаимодействие с User Service
+Rel(userPreferenceService, userService, "Получает данные о предпочтениях пользователей")
+
+@enduml
+
+@startuml house_service_component
+!include C4_Context.puml
+!include C4_Container.puml
+!include C4_Component.puml
+
+Container_Boundary(houseService, "House Service") {
+    Component(houseProcessor, "House Processor",  "Обрабатывает события и обновляет данные умного дома")
+    Component(houseController, "House Controller", "REST Controller", "Управляет умным домом")
+    Component(eventConsumer, "Event Consumer",  "Потребляет события из Kafka")
+    Component(houseRepository, "House Repository", "Доступ к данным пользователей в базе данных")
+    Component(houseControlService, "House Control Service",  "Сервис управления данными умного дома (обновление, создание, удаление)")
+}
+
+ContainerDb(houseDB, "House DB", "PostgreSQL", "Хранит данные о домах")
+
+' Внешние системы
+Container(kafka, "Kafka", "Шина данных для обмена сообщениями")
+
+' Взаимодействия компонентов
+Rel(houseProcessor, houseRepository, "Обновление данных")
+Rel(houseController, houseControlService, "Вызов методов")
+Rel(houseControlService, houseRepository, "Обновление данных")
+Rel(houseRepository, houseDB, "Чтение/Запись")
+Rel(kafka, eventConsumer, "Потребление событий")
+Rel(eventConsumer, houseProcessor, "Потребление событий")
+
+
+@enduml
+
+
+@startuml heating_service_code
+package "Heating Device Control Context" {
+    class HeatingController {
+        - kafka: Kafka
+        + setTargetTemperature(deviceId, temperature)
+        + setHeatingStatus(deviceId, status)
+        + createDevice(deviceData)
+    }
+    
+    class HeatingControlService {
+        - heatingRepository: HeatingRepository
+        - commandPublisher: CommandPublisher
+        + setTargetTemperature(deviceId, temperature)
+        + setHeatingStatus(deviceId, status)
+        + createDevice(deviceData)
+    }
+    
+    class CommandPublisher {
+        + sendCommand(deviceId, command)
+    }
+}
+
+' Общие классы
+class HeatingRepository {
+    + save(heatingData)
+    + findByDeviceId(deviceId): HeatingData
+}
+
+class HeatingData {
+    - deviceId: String
+    - targetTemperature: Float
+    - isHeatingOn: Boolean
+}
+
+class TemperatureRecord {
+    - deviceId: String
+    - timestamp: DateTime
+    - value: Float
+    - unit: String
+}
+
+' Взаимодействия в контексте Управления устройствами
+HeatingController --> HeatingControlService
+HeatingControlService --> HeatingRepository
+HeatingControlService --> CommandPublisher
+CommandPublisher --> Kafka
+Kafka --> HeatingController
+
+@enduml

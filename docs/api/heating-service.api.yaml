@@ -1,0 +1,65 @@
+openapi: 3.0.1
+info:
+    title: Heating Service API
+    version: 1.0.0
+servers:
+    - url: /
+paths:
+    /heating/{device_id}/target-temperature:
+        put:
+            summary: Установка целевой температуры
+            parameters:
+                - in: path
+                  name: device_id
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: Идентификатор устройства отопления
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                target_temperature:
+                                    type: number
+                                    format: float
+                                    description: Целевая температура
+            responses:
+                "200":
+                    description: Целевая температура успешно обновлена
+                "400":
+                    description: Некорректный запрос
+                "404":
+                    description: Устройство не найдено
+    /heating/{device_id}/status:
+        put:
+            summary: Включение/выключение отопления
+            parameters:
+                - in: path
+                  name: device_id
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: Идентификатор устройства отопления
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                status:
+                                    type: string
+                                    enum: [on, off]
+                                    description: Новый статус отопления
+            responses:
+                "200":
+                    description: Статус отопления успешно обновлен
+                "400":
+                    description: Некорректный запрос
+                "404":
+                    description: Устройство не найдено
